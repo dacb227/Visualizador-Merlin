@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" cornerRadius="7">
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.XMLListCollection;
+			import mx.containers.Grid;
+			import mx.controls.Alert;
+			import mx.controls.Button;
+			import mx.core.Application;
+			import mx.events.ListEvent;
+			import mx.managers.CursorManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.rpc.xml.SchemaTypeRegistry;
+			
+			import views.util.*;
+			
+			private var grid:GridExtended;       
+			private var gridtotal:GridTotal;
+			private var chart:ChartView;
+			private var pie:PieView;
+			private var multigrid:MultiGrid;
+			private var multigridtotal:MultiGridTotal;
+			private var reportmanager:ReportManager;
+			private var reportaudiomanager:ReportAudioManager;
+			private var gridManager:GridManager;
+			private var dateScheduler:DateScheduler;
+			private var type:String
+			private var rows:int;
+			private var recordSize:Number = 100;
+			private var startIndex:Number = 0;
+			public var restrictionsXML:XML = new XML;
+			private var next:Button = new Button;
+			private var previous:Button = new Button;
+			private var source:String;
+			private var product_key:String;
+			private var xml:XML = new XML;
+			private var columns:Object;
+			
+			public function init(wsdl:String, type:String, rows:int, restrictionsXML:XML):void{
+				
+				this.type = type;
+				this.rows = rows;
+				this.restrictionsXML = restrictionsXML;
+				this.source = Application.application.parameters.source;
+				this.product_key = Application.application.parameters.product_key;  
+				Application.application.parameters.columnDef = ({name:"name", webservice:"web", type:"type"});		
+
+				if(type == "grid"){
+			    	grid = new GridExtended;
+			    	grid.percentHeight = 100;
+			    	grid.percentWidth = 100;
+			       	//grid.addEventListener(GridExtendedEvent.OUT_OF_RANGE, dataIsOutOfRange);
+			       	addChild(grid);
+        		}else if(type == "gridtotal"){
+        			gridtotal = new GridTotal;
+        			gridtotal.init();
+			    	gridtotal.percentHeight = 100;
+			    	gridtotal.percentWidth = 100;
+			    	addChild(gridtotal);
+   				}else if(type == "multigrid"){
+   					multigrid = new MultiGrid;
+   					multigrid.addEventListener(ListEvent.ITEM_CLICK, showDetail);
+   					multigrid.percentHeight = 100;
+   					multigrid.percentWidth = 100;
+   					addChild(multigrid);
+   				}else if(type == "multigridtotal"){
+   					multigridtotal = new MultiGridTotal;
+   					multigridtotal.addEventListener(ListEvent.ITEM_CLICK, showDetail);
+   					multigridtotal.percentHeight = 100;
+   					multigridtotal.percentWidth = 100;
+   					addChild(multigridtotal);
+   				}else if(type == "chart"){
+					this.source = Application.application.parameters.user;
+		    		recordSize = 7;
+		    		chart = new ChartView;
+		    		chart.percentHeight = 100;
+			    	chart.percentWidth = 100;
+			       	addChild(chart);
+		    	}else if(type == "pie"){
+					this.source = Application.application.parameters.user;
+		    		pie = new PieView;
+			    	recordSize=0;
+		        	addChild(pie);
+	        	}else if(type == "reportmanager"){
+					this.source = Application.application.parameters.user;
+					reportmanager = new ReportManager;				
+					reportmanager.init(wsdl);
+					reportmanager.percentHeight = 100;
+					reportmanager.percentWidth = 100;
+					addChild(reportmanager);
+				}else if(type == "reportaudiomanager"){
+					this.source = Application.application.parameters.user;
+					reportaudiomanager = new ReportAudioManager;				
+					reportaudiomanager.init(wsdl);
+					reportaudiomanager.percentHeight = 100;
+					reportaudiomanager.percentWidth = 100;
+					addChild(reportaudiomanager);
+				}else if(type == "scheduler"){
+					this.source = Application.application.parameters.user;
+					dateScheduler = new DateScheduler;				
+					dateScheduler.init(wsdl);
+					dateScheduler.percentHeight = 100;
+					dateScheduler.percentWidth = 100;
+					addChild(dateScheduler);
+				}else if(type=="gridmanager"){
+					this.source = Application.application.parameters.user;
+					gridManager = new GridManager;				
+					gridManager.init(wsdl);
+					gridManager.percentHeight = 100;
+					gridManager.percentWidth = 100;
+					addChild(gridManager);
+				}
+				webService.wsdl = wsdl;
+				webService.loadWSDL();
+				if(type == "scheduler"){
+					var tmp_date:Date = new Date();
+					webService.getdataxml(tmp_date.getDate(), (tmp_date.getMonth()+1), tmp_date.getFullYear(), source, product_key);
+				}else{
+					//webService.getdataxml(0, recordSize, "",  source, product_key);
+				}
+				CursorManager.setBusyCursor();
+			}
+			
+			public function showDetail(event:ListEvent):void{
+				CursorManager.setBusyCursor();
+				var row:int = event.rowIndex;
+				var col:int = event.columnIndex;
+				var listXML:XMLListCollection = new XMLListCollection(xml.data.row);
+				//var columns:Object = Application.application.parameters.columnDef;
+				var column:Object = this.columns[col];
+				var s:String = column.headerText;
+				var i:int = column.dataField-1;
+				var rowValue:XML = listXML[row];
+				webService.getextradataxml(col, s, rowValue, restrictionsXML);
+			}
+			
+			public function setColumnsObject(c:Object):void{
+				this.columns = c;
+			}
+			
+			public function getTitle():void{
+		    	var title:String = "";
+		    	for(var i:int = 0; i < restrictionsXML.length; i++){
+		    		if(i == 0)
+		   			title += "RESTRICCIONES:";	
+		    		title += "  ";
+		    		if(i == 2){
+		    			title += "...";
+		    			break;
+		    		}else{
+		    			if(restrictionsXML[i].type == "rango")
+						title += "Tipo: Rango "+restrictionsXML[i].column+"=["+restrictionsXML[i].value[0]+", "+restrictionsXML[i].value[1]+"]";
+					else
+						title += "Tipo: Valor "+restrictionsXML[i].column+"="+restrictionsXML[i].value;            		
+		    		}
+		    	}
+		    	//parentDocument.setTitle(title);
+		    }		
+			
+			/**webservices handler events**/
+			private function getdataxml_result(evt:ResultEvent):void {
+				CursorManager.removeBusyCursor();
+				xml = new XML(evt.result);//Alert.show(restrictionsXML.toXMLString());
+				if(type == "grid"){
+					grid.collectionLength = rows;
+					if(grid.collectionLength < recordSize){
+						recordSize = grid.collectionLength;
+					}
+					grid.dataLoaded(xml);
+				}else if(type == "gridtotal"){
+					//gridtotal.collectionLength = rows;
+					gridtotal.dataLoaded(xml);
+				}else if(type == "multigrid"){
+					multigrid.init(xml);
+					//webService.getdetaildefinition();
+				}else if(type == "multigridtotal"){
+					multigridtotal.init(xml);
+					//webService.getdetaildefinition();
+				}else if(type == "chart"){
+					chart.total = rows;	
+					chart.dataLoaded(xml);			
+				}else if(type == "pie"){
+					pie.dataLoaded(xml);
+				}else if(type == "reportmanager"){
+					reportmanager.dataLoaded(xml);
+				}else if(type == "reportaudiomanager"){
+					reportaudiomanager.dataLoaded(xml);
+				}else if(type == "scheduler"){
+					dateScheduler.dataLoaded(xml);
+				}else if(type == "gridmanager"){
+					gridManager.dataLoaded(xml);
+				}
+				//downloadingData = false;
+		    }
+			
+		    private function getdataxml_fault(evt:FaultEvent):void {
+				CursorManager.removeBusyCursor();
+				Alert.show(evt.fault.message);
+		    }
+		    /**end webservices handler events**/
+		    
+		    private function getextradataxml_result(evt:ResultEvent):void {
+				CursorManager.removeBusyCursor();
+				if(type == "multigrid"){
+					multigrid.initDescriber(new XML(evt.result));
+				}else if(type == "multigridtotal"){
+					multigridtotal.initDescriber(new XML(evt.result));
+				}
+				//downloadingData = false;
+		    }
+			
+		    private function getextradataxml_fault(evt:FaultEvent):void {
+		    	CursorManager.removeBusyCursor();
+				Alert.show("GetExtra Error");
+		    }
+/*
+		    private function getdetaildefinition_result(evt:ResultEvent):void {
+		    	var detailxml:XML = new XML(evt.result);    
+				Application.application.parameters.detailxml = detailxml;
+				if(type == "multigrid"){
+					multigrid.init(xml);
+				}else if(type == "multigridtotal"){
+					multigridtotal.init(xml);
+				}
+				CursorManager.removeAllCursors();
+		    }
+			
+		    private function getdetaildefinition_fault(evt:FaultEvent):void {
+		    	CursorManager.removeBusyCursor();
+				Alert.show(evt.fault.message);
+		    }		    
+*/		    
+		    public function loadRecords(xml:XML):void{
+		    	this.restrictionsXML = xml;
+				webService.getdataxml(startIndex, recordSize, xml, source, product_key);
+				if(type=="reportmanager"){
+					//reportmanager.reloadFolderStructure();
+				}
+				if(type=="reportaudiomanager"){
+					//reportaudiomanager.reloadFolderStructure();
+				}
+				if(type == "scheduler"){
+				}
+				CursorManager.setBusyCursor();
+		    }
+			
+			public function loadSortedRecords(xml:XML):void{
+				CursorManager.setBusyCursor();
+				webService.getsorteddataxml(startIndex, recordSize, restrictionsXML, xml, source, product_key);
+			}
+			
+			private function dataIsOutOfRange(evt:GridExtendedEvent):void{
+				//loadRecords({startindex:evt.data.start, size:recordSize, field:evt.data.field, by:evt.data.sortType}); 
+				//loadRecords({startindex:evt.data.start, size:recordSize});    
+				//CursorManager.setBusyCursor(); 
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<mx:WebService 
+		id="webService">
+		<mx:operation
+			name="getdataxml"
+			result="getdataxml_result(event)"
+			fault="getdataxml_fault(event)"
+			/>
+		<mx:operation
+			name="getextradataxml"
+			result="getextradataxml_result(event)"
+			fault="getextradataxml_fault(event)"
+			/>
+		<mx:operation
+			name="getsorteddataxml"
+			result="getdataxml_result(event)"
+			fault="getdataxml_fault(event)"
+			/>
+<!--	<mx:operation 
+			name="getdetaildefinition"
+			result="getdetaildefinition_result(event)"
+			fault="getdetaildefinition_fault(event)"
+			/>	
+		<mx:operation
+			name="updatedata"
+			result="updatedata_result(event)"
+			fault="updatedata_fault(event)"
+			/>-->
+    </mx:WebService> 
+	
+</mx:HBox>

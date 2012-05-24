@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<mx:VBox 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="100%" 
+	height="100%" 
+	cornerRadius="7" 
+	verticalGap="0"
+	borderColor="#9ba3a7"
+	borderStyle="solid"
+	backgroundColor="#eeeeee"
+	borderSides="bottom left right"
+	>
+
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.Alert;
+			import views.*;
+			
+			public function init(xml:XML, workgroupsDesktop:XML):void{
+				for each(var report:XML in xml.report){
+					for each(var group in workgroupsDesktop.workgroup){
+						if(group.@label == report.user){
+							var view = new View();
+							view.init(report);
+							var l = vistas.addChild(view);;
+							l.label = report.name;
+						}
+					}
+				}
+				linkbar.dataProvider = vistas;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:TabBar id="linkbar" verticalGap="0" />
+	<mx:ViewStack id="vistas" width="100%" height="100%" >
+	</mx:ViewStack>
+	
+</mx:VBox>

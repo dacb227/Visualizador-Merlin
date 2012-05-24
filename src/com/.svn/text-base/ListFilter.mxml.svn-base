@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	verticalAlign="middle" 
+	horizontalAlign="center" 
+	verticalGap="0" 
+	>
+
+	<mx:Style source="css/Default.css"/>
+	<mx:Script>
+		<![CDATA[
+			import com.util.restriccionesXML;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import mx.controls.Alert;
+			import mx.controls.Button;
+			import mx.controls.DateField;
+			import mx.core.Application;
+			import mx.events.IndexChangedEvent;
+			import mx.events.ListEvent;
+			import mx.rpc.AbstractOperation;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+
+			[Bindable] private var list:ArrayCollection = new ArrayCollection();
+            [Bindable] private var listxml:XMLList;
+            private var column:String;
+            private var type:String;
+            private var index:int;
+            private var service:String;
+			private var o:AbstractOperation
+			
+            public function init(column:String, type:String, service:String, wsdl:String, index:int, product_key:String, from_date:DateField, to_date:DateField):void{
+            	this.index = index;
+            	this.column = column;
+            	this.type = type;
+				this.service = service;
+            	webservice.wsdl = wsdl;
+            	webservice.loadWSDL();
+            	//
+            	/*comboSeleccion.addEventListener(ListEvent.CHANGE, function clearMenu(evt:Event):void{
+																	initMenuRestricciones();
+																	});
+				*/
+				//webservice.getlistitemxml(product_key);
+				o = webservice.getOperation(service);
+				o.send(product_key);
+            }
+			
+			public function reloadList(product_key,from_date:DateField, to_date:DateField){
+				o.send(product_key);
+			}
+                        
+            private function getItem(evt:ListEvent){
+            	Alert.show(evt.columnIndex.toString());
+            	//var tmp:Object = operator[OperatorList.selectedIndex];
+            }
+            
+            private function getresult(evt:ResultEvent){
+            	var xml:XML = new XML(evt.result);
+            	listxml = new XMLList(xml.items);
+            	//ListItem.addEventListener(ListEvent.CHANGE, getItem); 
+            }
+            
+            private function getfault(evt:FaultEvent){
+            	Alert.show(evt.fault.message);
+            }
+            	        
+	        private function ver():void{
+	        	var _item:String = ListItem.selectedItem.item.toString();
+	        	var restrictions:restriccionesXML = new restriccionesXML;
+	        	restrictions.setColumna(this.column);
+	        	restrictions.setTipo("valor");
+	        	restrictions.setValor(_item);
+				try{
+					var x:XMLList = listxml.(item == _item);
+					restrictions.setId(x.item.@id);
+				}catch(e:Error){}
+	        	var xmllis:XMLListCollection = new XMLListCollection();
+	        	var xml:XMLList = restrictions.crearItem(index);
+	        	//xmllis.addItem(xml);
+	        	//parentDocument.setRestrictions(xmllis);
+	        	parentDocument.setRestrictions(this.type, xml);
+	        }
+	        
+            private function download():void{
+            	//var file = "http://200.75.155.158/backoffice/http_service/MovistarTV/excel.php?from="+String(fecha_desde.text)+"&to="+String(fecha_hasta.text)+"&product=ccaudit22_cc18&ccenter=test";
+            	//var url:URLRequest = new URLRequest(file);
+            	//navigateToURL(url, "_bank");
+            }
+	        
+		]]>
+	</mx:Script>
+
+	<mx:HBox 
+		width="100%" 
+		horizontalAlign="center" 
+		verticalAlign="middle">
+		
+		<mx:ComboBox
+			id="ListItem"
+			dataProvider="{listxml}"
+			labelField="item"
+			
+			change="getItem"
+		/>
+					
+		<mx:Button 
+			label="Ver" 
+			click="ver();" styleName="Botones"/>
+			
+		<!--<mx:Button 
+			label="Descargar" 
+			 click="download();" styleName="Botones"/>-->
+	</mx:HBox>
+		
+	<mx:WebService id="webservice" result="getresult(event)" fault="getfault(event)"/>
+</mx:VBox>

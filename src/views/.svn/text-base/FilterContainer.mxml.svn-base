@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="100%" 
+	horizontalAlign="center" 
+	verticalAlign="middle"
+	verticalGap="0"
+	styleName="Filtro"
+	cornerRadius="7">
+	
+	<mx:Style source="css/Default.css"/>
+	<mx:Script>
+		<![CDATA[
+			import com.*;
+			import com.util.restriccionesXML;
+			
+			import mx.collections.XMLListCollection;
+			import mx.containers.HBox;
+			import mx.containers.ViewStack;
+			import mx.controls.Alert;
+			import mx.controls.LinkBar;
+			import mx.controls.VRule;
+			import mx.core.Application;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.rpc.wsdl.WSDLBinding;
+			
+			private var linkbar:LinkBar = new LinkBar;
+			private var vistas:ViewStack = new ViewStack;
+			private var restrictionsXML:XMLListCollection = new XMLListCollection;
+			private var wsdl:String;
+			private var source:String;
+			private var product_key:String;
+			private var fr:FileReference;
+			private var xmlreturn:XML = new XML("<restrictions></restrictions>");
+			private var sortxml:XML = new XML("<sort></sort>");
+			private var hbox:HBox =  new HBox;
+			public var df:DateFiltro;
+			public var lf:ListFilter;
+			public var odf:OneDateFiltro;
+			public var sl:SortList;
+			public var sdf:SemanalDateFilter;
+			
+			public function init(xml:XML, wsdl:String, download:int, type:String):void{
+				source = Application.application.parameters.source; 
+				product_key = Application.application.parameters.product_key;
+				hbox.percentHeight = 100;
+				hbox.percentWidth = 100;
+				hbox.setStyle("horizontalAlign", "center");
+				var index:int = 0;
+				this.addChild(linkbar);
+				if(type == "gridmanager"){  //CASO ESPECIAL PARA BOTON EJECUTIVO
+					
+				}
+				hbox.addChild(vistas);
+				this.addChild(hbox);	
+				this.wsdl = wsdl;		
+				
+				for each(var column:XML in xml.column){
+					if(column.type == "date"){
+						df = new DateFiltro;
+						df.init(column.name, column.type, index, download);
+						var l = vistas.addChild(df);
+						l.label = column.name.toUpperCase();
+					}else if(column.type == "semanaldate"){
+						sdf = new SemanalDateFilter;
+						sdf.init(column.name, column.type, index, download);
+						var l = vistas.addChild(sdf);
+						l.label = column.name.toUpperCase();
+					}else if(column.type == "text"){
+					
+					}else if(column.type == "number"){
+					
+					}else if(column.type == "list"){
+						lf = new ListFilter;
+						lf.init(column.name, column.type, column.service, wsdl, index, product_key, df.fecha_desde, df.fecha_hasta);
+						var l = vistas.addChild(lf);
+						l.label = column.name.toUpperCase();
+					}else if(column.type == "onedate"){
+						odf = new OneDateFiltro;
+						odf.init(column.name, column.type, index, download);
+						var l = vistas.addChild(odf);
+						l.label = column.name.toUpperCase();
+					}else if(column.type == "sort"){
+						sl = new SortList;
+						sl.init(column.name, column.type, column.service, wsdl, index, product_key);
+						var l = vistas.addChild(sl);
+						l.label = column.name.toUpperCase();
+					}
+					index++;
+				}
+				linkbar.dataProvider = vistas;
+			}
+			
+			public function setRestrictions(caller:String, xml:XMLList):void{//Alert.show(xml.toXMLString());
+				if(!filterExists(xml)){
+					xmlreturn.appendChild(xml);//restrictionsXML.addItem(xml);
+				}//else{
+				//	xmlreturn.appendChild(xml);//restrictionsXML.addItem(xml);
+				//}
+				//xmlreturn.addItem(restrictionsXML);
+				//parentDocument.reloadDataContainer(restrictionsXML);
+				
+				parentDocument.reloadDataContainer(xmlreturn);
+				if(caller == "date" && lf){
+					//lf.reloadList(product_key, df.fecha_desde, df.fecha_hasta);
+				}
+			}
+			
+			public function sortGrid(caller:String, xml:XMLList):void{
+				sortxml = new XML("<sort></sort>");
+				sortxml.appendChild(xml);//restrictionsXML.addItem(xml);
+				//else{
+				//	xmlreturn.appendChild(xml);//restrictionsXML.addItem(xml);
+				//}
+				//xmlreturn.addItem(restrictionsXML);
+				//parentDocument.reloadDataContainer(restrictionsXML);	
+				//Alert.show(sortxml);
+				parentDocument.reloadSortedDataContainer(sortxml);
+			}
+			
+			private function filterExists(xml:XMLList){
+				var xmllist:XMLList = new XMLList(xmlreturn.children());
+				var size:int = xmllist.length();
+				
+				for (var i=0; i < size; i++){
+					if(xmllist[i].@id == xml.@id){
+						//xmllist.removeItemAt(i);
+						xmlreturn.replace(i,xml);
+						return true
+					}
+				}
+				return false;
+			}
+						
+			public function downloadToExcel(xml:XMLList):void{
+				if(!filterExists(xml)){
+					xmlreturn.appendChild(xml);//restrictionsXML.addItem(xml);
+				}//else{
+				//	xmlreturn.appendChild(xml);//restrictionsXML.addItem(xml);
+				//}
+				//xmlreturn.addItem(restrictionsXML);
+				//parentDocument.reloadDataContainer(restrictionsXML);				
+				
+				webService.wsdl = this.wsdl;
+				webService.loadWSDL();
+				webService.download(xmlreturn, source, product_key);
+			}
+			
+            private function download_result(evt:ResultEvent):void {
+				var dir:XML = new XML(evt.result);
+				var url:URLRequest = new URLRequest(dir.address);
+				navigateToURL(url,"_bank");
+            }
+			private function errorIO(event:IOErrorEvent):void{
+				Alert.show("IOErrorEvent "+event.text);
+			}
+			private function openHandler(event:Event):void{
+				Alert.show("Descargando");
+    		}
+			private function completeHandler(event:Event):void{
+        		Alert.show("Descarga Completada");	
+		    }
+			private function download_fault(evt:FaultEvent):void {
+				Alert.show("FaultEvent "+evt.fault.message);
+            }
+			
+		]]>
+	</mx:Script>
+	
+	<mx:WebService 
+			id="webService" >
+		<mx:operation 
+			name="download"
+			result="download_result(event)"
+			fault="download_fault(event)"/>
+	</mx:WebService>
+	
+</mx:VBox>

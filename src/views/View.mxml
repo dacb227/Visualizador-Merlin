@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="100%" 
+	height="100%" 
+	xmlns:com="com.*" 
+	verticalGap="0"
+	cornerRadius="7">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.XMLListCollection;
+			import mx.containers.HBox;
+			import mx.controls.Alert;
+			import mx.controls.Button;
+			import mx.controls.Label;
+			import mx.core.Application;
+			import mx.managers.CursorManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import views.util.*;
+						
+			private var filterContainer:FilterContainer = new FilterContainer;
+			private var labelContainer:Label = new Label;
+			private var dataContainer:DataContainter = new DataContainter;		
+			private var propertiesXML:XML = new XML;
+			private var type:String;
+			private var wsdl:String;
+			private var rows:int;
+			private var reportId:int;
+			private var download:int;
+			private var url:String;			
+			
+			
+			public function init(xml:XML):void{
+				this.type = xml.type;
+				this.wsdl = xml.webservice;
+				this.reportId = xml.id;
+				this.download = xml.download;
+				
+				var source:String = Application.application.parameters.source;
+				var user:String = Application.application.parameters.user;
+				var product_key:String = Application.application.parameters.product_key;
+								
+				webService.wsdl = wsdl;
+				webService.loadWSDL();
+				webService.getpropertiesxml(this.reportId, source, product_key);
+				
+				dataContainer.percentHeight = 100;
+				dataContainer.percentWidth = 100;
+								
+				labelContainer.text = "";
+				
+				var hbox:HBox = new HBox();
+				hbox.percentWidth = 100;
+				hbox.setStyle("horizontalGap", "1");
+				if(type == "gridmanager"){
+					var vbox:VBox = new VBox();
+					vbox.width = 150;
+					vbox.percentHeight = 100;
+					vbox.styleName = "Filtro";
+					vbox.setStyle("verticalAlign", "middle");
+					vbox.setStyle("horizontalAlign", "center");
+					
+					var label:Label = new Label();
+					label.text = "Video Teléfono";
+					label.setStyle("fontWeight","bold");
+					var videochat_but:Button = new Button();
+					videochat_but.label = "Activar";
+					videochat_but.styleName = "Botones";
+					videochat_but.addEventListener(MouseEvent.CLICK, function open_URL(evt:Event):void{
+						url = Application.application.parameters.videochaturl+"?user="+user;
+						ExternalInterface.call('window.open', url, '_blank','location=no,status=no,resizable=no,width=736,height=414');
+					});
+					vbox.addChild(label);
+					vbox.addChild(videochat_but);
+					hbox.addChild(vbox);
+				}
+				hbox.addChild(filterContainer);
+				this.addChild(hbox);
+				//this.addChild(labelContainer);
+				this.addChild(dataContainer);	
+			}
+	
+			public function setTitle(title:String):void{
+				try{
+					labelContainer.text = title;
+				}catch(e:Error){
+					labelContainer.text = "";
+				}
+			}
+	
+			public function reloadDataContainer(xml:XML):void{
+				dataContainer.loadRecords(xml);
+			}
+			
+			public function reloadSortedDataContainer(xml:XML):void{
+				dataContainer.loadSortedRecords(xml);
+			}
+			
+			private function getpropertiesxml_result(evt:ResultEvent):void {
+				propertiesXML = new XML(evt.result);
+				this.rows = propertiesXML.properties.@numrows;
+				try{
+					filterContainer.init(new XML(propertiesXML.filters), this.wsdl, this.download, type);
+				}catch(e:Error){
+					Alert.show(e.message);
+				}
+				CursorManager.removeBusyCursor();	
+				dataContainer.init(wsdl, type, rows, new XML);
+   			}
+			
+			private function getpropertiesxml_fault(evt:FaultEvent):void {
+				Alert.show("View:FaultEvent "+evt.fault.message);
+            }
+				
+		]]>
+	</mx:Script>
+	
+	<mx:WebService 
+			id="webService" >
+		<mx:operation 
+			name="getpropertiesxml"
+			result="getpropertiesxml_result(event)"
+			fault="getpropertiesxml_fault(event)"/>
+	</mx:WebService>
+	
+</mx:VBox>

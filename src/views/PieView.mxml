@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" verticalAlign="middle" horizontalAlign="center">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.binding.utils.BindingUtils;
+			import mx.charts.HitData;
+			import mx.charts.series.PieSeries;
+			import mx.charts.series.items.PieSeriesItem;
+			import mx.collections.XMLListCollection;
+			import mx.controls.Alert;
+			import mx.effects.easing.*;
+			import mx.managers.CursorManager;
+			
+			
+			private var listXML:XMLListCollection;
+			private var myXML:XML;
+			public var total:Number = 0;
+			public var pieTitle:String;
+			
+			public function dataLoaded(xml:XML):void{
+				myXML = new XML(xml);
+            	listXML = new XMLListCollection(myXML.data.row);
+				pieChart.dataProvider = listXML;
+				this.total=0;
+				this.pieTitle = myXML.data.@title
+		        text.text = this.pieTitle+" : Total Registros "+int(this.total);
+        		CursorManager.removeBusyCursor();
+  			}
+			
+			private function setDataTip(item:HitData):String {
+	        	var pSI:PieSeriesItem = item.chartItem as PieSeriesItem;
+	        	return  pSI.item.value+": "+pSI.item.value.@count;
+	        }
+	        
+	        private function setLabelFunc(item:Object, field:String, index:Number, percentValue:Number):String {
+		       	return item.value.@count + " (" + percentValue.toFixed(1) + "%)";
+	        }
+	  		  		
+	        private function setData(series:PieSeries, item:Object, fieldName:String):Object{
+	        	this.total += int(item.value.@count);
+	        	text.text = this.pieTitle+" : Total Registros "+int(this.total);
+		 		return item.value.@count; 
+		 	}
+			
+		]]>
+	</mx:Script>
+	
+	
+	<mx:Text id="text" styleName="chartsText"/>
+	
+	<mx:HBox width="100%" height="100%" verticalAlign="middle" horizontalAlign="center">
+		
+		<mx:PieChart 
+			id="pieChart" 
+			width="100%" 
+			height="100%" 
+			showDataTips="true" 
+			dataTipFunction="setDataTip">
+			
+			<mx:series>
+				<mx:PieSeries 
+					dataFunction="setData" 
+					labelFunction="setLabelFunc" 
+					nameField="*" 
+					labelPosition="callout" >
+					
+					<mx:showDataEffect>
+						<mx:SeriesInterpolate duration="1500"
+                            easingFunction="{Elastic.easeOut}" />
+					</mx:showDataEffect>
+					
+					<mx:filters>
+                    	<mx:DropShadowFilter />
+                	</mx:filters>
+				</mx:PieSeries>
+			</mx:series>
+		</mx:PieChart>
+		
+		<mx:Legend 
+			paddingRight="50"
+			dataProvider="{pieChart}"/>
+	</mx:HBox>
+	
+</mx:VBox>

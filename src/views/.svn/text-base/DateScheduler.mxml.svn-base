@@ -1,0 +1,503 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" 
+		 width="100%" 
+		 height="100%" 
+		 paddingRight="30"
+		 paddingLeft="20" 
+		 paddingBottom="20" 
+		 paddingTop="10">
+	
+	<mx:Script>
+		<![CDATA[
+			import flash.net.navigateToURL;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.CursorBookmark;
+			import mx.containers.Box;
+			import mx.containers.Canvas;
+			import mx.containers.HBox;
+			import mx.containers.VBox;
+			import mx.controls.Alert;
+			import mx.controls.Button;
+			import mx.controls.CheckBox;
+			import mx.controls.DateChooser;
+			import mx.controls.HRule;
+			import mx.controls.Image;
+			import mx.controls.Label;
+			import mx.controls.VRule;
+			import mx.core.Application;
+			import mx.events.CloseEvent;
+			import mx.formatters.DateFormatter;
+			import mx.managers.CursorManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.skins.Border;
+			import mx.utils.ObjectUtil;
+			import mx.utils.StringUtil;
+
+			public var hours:ArrayCollection = new ArrayCollection();
+			public var monthNames:Array = new Array("ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE");
+			public var weekNames:Array = new Array("LUNES","MARTES","MIERCOLES","JUEVES","VIERNES");
+			public var box:Box = new Box();
+			//public var vbox:VBox = new VBox();
+			public var dateChooser:DateChooser = new DateChooser();
+			private var now_date:Date = new Date();
+			public var dayNames = new Array("D", "L", "M", "M", "J", "V", "S");
+			private var week:int = 5;
+			private var week_array:Array = new Array();
+			private var start_date_week:Date
+			private var end_date_week:Date 
+			private var xml:XML = new XML;
+			private var dates_array:Array = new Array();
+			private var reserved_array:Array = new Array();
+			private var user:String;
+			private var product_key:String;
+			private var cells_array:Array = new Array();
+			private var today:String;
+			private var timer:Timer;
+			private var url:String;
+			public function init(wsdl:String):void{
+				var m:int = now_date.getMonth()+1;
+				var month:String = m.toString();
+				if(m < 10)
+					month = "0"+m;
+				var d:int = now_date.getDate();
+				var day:String = d.toString();
+				if(d < 10)
+					day = "0"+d;
+				today = now_date.getFullYear()+"-"+month+"-"+day;
+				user = Application.application.parameters.user;
+				url = "http://pro0.merlin.com/ejecutivo?user="+user;
+				product_key = Application.application.parameters.product_key;
+				boxInit();			//INICIALIZA CONTENDOR PRINCIPAL
+				dateChooserInit();	//INICIALIZA CALENDARIO
+				box.addChild(dateChooser);
+				legendInit();
+				this.addChild(box);
+				timer = new Timer(300000);
+				timer.start();
+				timer.addEventListener(TimerEvent.TIMER, reloadCalendar);
+				CursorManager.setBusyCursor();
+				webService.wsdl = wsdl;
+				webService.loadWSDL();
+				webService.getlistxml(); //SERVICIO DE HORARIOS
+			}
+			
+			private function initWeekCalendar():void{
+				try{
+					this.removeChildAt(1);
+				}catch(e:Error){}
+				var tmp_hour:Date = new Date(); //HORA ACTUAL
+				
+				var i:int = 0;
+				var vbox_container:VBox = new VBox();	//CONTENEDOR PRINCIPAL
+				
+				vbox_container.percentHeight = 100;
+				vbox_container.percentWidth = 100;
+				//vbox_container.setStyle("paddingRight", "10");
+				vbox_container.setStyle("borderStyle","solid");
+				vbox_container.setStyle("verticalGap",0);
+				vbox_container.setStyle("cornerRadius",5);
+				
+				var vbox_hour:VBox = new VBox();	//CONTENEDOR DE HORARIOS
+				vbox_hour.percentHeight = 100;
+				vbox_hour.percentWidth = 100;
+				vbox_hour.setStyle("borderStyle","solid");
+				
+				var hbox_weeks:HBox = new HBox();	//CONTENEDOR DE DIAS
+				hbox_weeks.percentWidth = 100;
+				hbox_weeks.setStyle("borderStyle","solid");
+				hbox_weeks.setStyle("horizontalGap",0);
+				
+				//CASILLA VACIA
+				var l_aux:Label = new Label();
+				l_aux.percentWidth = 10;
+				//l_aux.text =  "HORARIOS";
+				var b_day:Box = new Box();
+				b_day.width = 90;
+				b_day.setStyle("borderStyle","solid");
+				b_day.setStyle("horizontalAlign","center");			
+				b_day.addChild(l_aux);
+				hbox_weeks.addChild(b_day);
+				
+				
+				for each (var w:Date in week_array) { //CREA LAS CABECERAS PARA CADA DIA
+					var l_day:Label = new Label();
+					var b_day:Box = new Box();
+					b_day.percentWidth = 100;	//TODO: REVIZAR DIMENSIONES
+					b_day.setStyle("borderStyle","solid");
+					b_day.setStyle("horizontalAlign","center");
+					
+					l_day.percentWidth = 20;
+					l_day.text = weekNames[i].toString()+" ("+w.getDate()+" DE "+monthNames[w.getMonth()]+")";
+					b_day.addChild(l_day);
+					hbox_weeks.addChild(b_day);
+					i++
+				}
+				
+				vbox_container.addChild(hbox_weeks);
+				
+				for each (var h:String in hours) {	//CREA COLUMNA DE HORARIOS 
+					var hbox_hour:HBox = new HBox();
+					hbox_hour.percentHeight = 100;
+					hbox_hour.percentWidth = 100;
+					hbox_hour.setStyle("verticalGap",0);
+					hbox_hour.setStyle("horizontalGap",0);
+					vbox_hour.percentHeight = 100;
+					vbox_hour.percentWidth = 100;
+					vbox_hour.setStyle("verticalGap",0);
+					vbox_hour.setStyle("horizontalGap",0);
+					
+					var l_hour:Label = new Label();
+					l_hour.percentHeight = 10;
+					l_hour.text = h;
+					
+					var b_hour:Box = new Box();
+					b_hour.width = 90;
+					b_hour.percentHeight = 100;
+					b_hour.setStyle("borderStyle","solid");
+					b_hour.setStyle("verticalAlign","middle");
+					b_hour.setStyle("horizontalAlign","center");
+					b_hour.addChild(l_hour);
+					hbox_hour.addChild(b_hour);
+					
+					for(var i:int = 0; i < 5; i++){
+						var v:VBox = new VBox;
+						var active = true;
+						var m:int = week_array[i].getMonth()+1;
+						var month:String = m.toString();
+						if(m < 10)
+							month = "0"+m;
+						var d:int = week_array[i].getDate();
+						var day:String = d.toString();
+						if(d < 10)
+							day = "0"+d;
+						
+						var this_date:String = week_array[i].getFullYear()+"-"+month+"-"+day;
+						
+						var count:int = 0;
+						v.percentHeight = 100;
+						v.percentWidth = 100;
+						v.styleName = "Schedules";
+						v.focusEnabled = true;
+						
+						var h_arr:Array = h.split("-");
+						var tmp_h:int = tmp_hour.hours;
+						var tmp_m:int = tmp_hour.minutes; 
+						var aux_h:String = "";
+						var aux_m:String = "";
+						
+						if(tmp_h < 10)
+							aux_h = "0";
+						if(tmp_m < 10)
+							aux_m = "0";
+						
+						aux_h = aux_h+tmp_h+":"+aux_m+tmp_m;
+						if(StringUtil.trim(h_arr[0]) <= aux_h && today == this_date){
+							v.enabled = false;
+							v.styleName = "disableSchedules";
+						}else if(today > this_date){
+							v.enabled = false;
+							v.styleName = "disableSchedules";
+						}
+						cells_array[h] = [this_date, v];						
+						
+						for each (var j:Object in dates_array[this_date]) {
+							if(j.toString() == h){
+								if(reserved_array[this_date][count] == "1"){
+									v.enabled = false;
+									//v.focusEnabled = false;
+									v.styleName = "inactiveSchedules";
+									//v.setStyle("backgroundAlpha","1");
+								}else{
+									v.focusEnabled = false;
+									v.styleName = "activeSchedules";
+									//v.setStyle("background-alpha","0.3");
+								}
+							} 
+							count++;
+						}
+							
+						if(active){
+							v.name = i+","+week_array[i]+","+h;
+							v.addEventListener(MouseEvent.ROLL_OVER, changeBackgroundColor);
+							v.addEventListener(MouseEvent.ROLL_OUT, reverseBackgroundColor);
+							v.addEventListener(MouseEvent.CLICK, getDayInfo);
+						}else{
+							v.enabled = false;
+						}
+						
+						hbox_hour.addChild(v);
+					}
+					vbox_hour.addChild(hbox_hour);
+				}
+				vbox_container.addChild(vbox_hour);
+				this.addChild(vbox_container);
+				CursorManager.removeBusyCursor();
+			}
+			
+			private function getDayInfo(evt:MouseEvent):void{
+				Alert.buttonWidth = 100;
+				
+				var tmp_string:String = evt.target.name;
+				var tmp_array:Array = tmp_string.split(",");
+				var dia_semana:String = tmp_array[0];
+				var tmp_date:Date = new Date(tmp_array[1]);
+				var day:Object = tmp_date.getDate();
+				var month:Object = tmp_date.getMonth();
+				var year:Object = tmp_date.getFullYear();
+				var hour:String = tmp_array[2];
+				var text:String = weekNames[dia_semana]+": "+day+" de "+monthNames[month]+" del "+year+"\n"+"Hora: "+hour;
+				
+				if(!evt.target.focusEnabled){
+					Alert.okLabel = "Desactivar";
+					Alert.cancelLabel= "Cancelar";
+					Alert.show(text,"",mx.controls.Alert.OK|mx.controls.Alert.CANCEL,this,function setScheduleDay(event:CloseEvent):void{
+						if(event.detail == Alert.OK){
+							evt.target.focusEnabled = true;
+							//evt.target.styleName = "inactiveSchedules";
+							evt.target.setStyle("backgroundColor","#FFFFFF");
+							webService.disablecheduledate(day,(month+1),year,hour,user);
+						}});
+				}else{
+					Alert.okLabel = "Activar";
+					Alert.cancelLabel= "Cancelar";
+					Alert.show(text,"",mx.controls.Alert.OK|mx.controls.Alert.CANCEL,this,function setScheduleDay(event:CloseEvent):void{
+						if(event.detail == Alert.OK){
+							evt.target.focusEnabled = false;
+							//evt.target.styleName = "disableSchedules";
+							evt.target.setStyle("backgroundColor","#316853");
+							//evt.target.setStyle("backgroundAlpha","0.5");
+							//evt.target.setStyle("backgroundColor","#004489");
+							webService.enablescheduledate(day,(month+1),year,hour,user);
+						}});
+				}
+				Alert.okLabel = "Ok";
+			}
+
+			
+			private function reverseBackgroundColor(evt:MouseEvent):void{
+				if(evt.target.focusEnabled)
+					evt.target.setStyle("backgroundColor","#FFFFFF");
+			}
+			
+			private function changeBackgroundColor(evt:MouseEvent):void{
+				if(evt.target.focusEnabled)
+					evt.target.setStyle("backgroundColor","#bdd156");
+			}
+			
+			private function getWeekArray(date:Date):Array{
+				var date:Date = date;
+				var week_array:Array = new Array();
+				var tmp:int = 1;
+				var tmp_date:Date;
+				for(var i:int=1; i<=week; i++){
+					tmp = i-date.getDay();
+					tmp_date = new Date(date.getFullYear(),date.getMonth(),(date.getDate()+tmp));
+					week_array[(i-1)] = tmp_date;
+				}
+				start_date_week = new Date(week_array[0]);
+				end_date_week = new Date(week_array[4]);
+				return week_array;
+			}
+			
+			private function getWeek(evt:MouseEvent):void{	
+				
+				var tmp_1:int = ObjectUtil.dateCompare(dateChooser.selectedDate, start_date_week);
+				var tmp_2:int = ObjectUtil.dateCompare(dateChooser.selectedDate, end_date_week);
+				if(tmp_1==tmp_2){
+					//week_array = getWeekArray(dateChooser.selectedDate);
+					/*
+					try{
+						this.removeChildAt(1);
+						CursorManager.setBusyCursor();
+					}catch(e:Error){}*/
+					//initWeekCalendar();
+				//}
+				//dateChooser.selectedRanges = [{rangeStart:end_date_week,rangeEnd:start_date_week}];
+				var tmp:Date = dateChooser.selectedDate;
+				webService.getdataxml(tmp.getDate(),(tmp.getMonth()+1),tmp.getFullYear(),user,product_key);}
+				dateChooser.selectedRanges = [{rangeStart:start_date_week,rangeEnd:end_date_week}];
+			}
+			
+			public function dataLoaded(xml:XML):void{
+				webService.getlistxml(); /*
+				this.xml = new XML(xml.data);
+				parseDataXML(this.xml);
+				if(!dateChooser.selectedDate){
+					week_array = getWeekArray(now_date);
+				}else{
+					week_array = getWeekArray(dateChooser.selectedDate);
+				}
+				initWeekCalendar();
+				dateChooser.selectedRanges = [{rangeStart:start_date_week,rangeEnd:end_date_week}]; */
+			}
+			
+			public function fillSchedule(xml:XML):void{
+				this.xml = new XML(xml.data);
+				parseDataXML(this.xml);
+				if(!dateChooser.selectedDate){
+					week_array = getWeekArray(now_date);
+				}else{
+					week_array = getWeekArray(dateChooser.selectedDate);
+				}
+				initWeekCalendar();
+				dateChooser.selectedRanges = [{rangeStart:start_date_week,rangeEnd:end_date_week}];
+			}
+			
+			private function parseDataXML(xml:XML):void{
+				var xml_list:XMLList = new XMLList(xml.row);
+				dates_array = new Array();
+				reserved_array = new Array();
+				for each(var list:Object in xml_list){
+					var d:String = list.date;
+					var h:String = list.hour;
+					var r:String = list.reserved;
+					dates_array[d] = h.split(",");
+					reserved_array[d] = r.split(",");
+				}
+			}
+		
+			private function reloadCalendar(evt:TimerEvent):void{
+				//Alert.show("timer");
+				//this.removeChildAt(1);
+				//initWeekCalendar();
+				var tmp:Date = new Date(); 
+				CursorManager.setBusyCursor();
+				if(dateChooser.selectedDate != null)
+					tmp = dateChooser.selectedDate;
+				webService.getdataxml(tmp.getDate(),(tmp.getMonth()+1),tmp.getFullYear(),user,product_key);
+			}
+			
+			private function boxInit():void{
+				box.height = 500;
+				box.width = 400;
+				box.setStyle("verticalAlign","middle");
+				box.setStyle("horizontalAlign","center");
+			}
+			
+			private function dateChooserInit():void{
+				dateChooser.styleName = "dateSchedules";
+				dateChooser.monthNames = monthNames;
+				dateChooser.dayNames = dayNames;
+				dateChooser.disabledDays = [0,6];
+				dateChooser.width = 300;
+				dateChooser.height = 300;
+				dateChooser.showToday = true;
+				dateChooser.addEventListener(MouseEvent.CLICK, getWeek);
+				dateChooser.allowMultipleSelection = false;
+			} 
+					
+			private function legendInit():void{
+				var hactive:HBox = new HBox;
+				var hinactive:HBox = new HBox;
+				var hdisabled:HBox = new HBox;
+				var vlegend:VBox = new VBox;
+				
+				vlegend.height = 100;
+				vlegend.width = 300;
+				vlegend.setStyle("verticalAlign","middle");
+				
+				vlegend.setStyle("borderStyle","solid");
+				vlegend.setStyle("cornerRadius",5);
+				vlegend.setStyle("paddingLeft",50);
+				
+				var active_label:Label = new Label();
+				var inactive_label:Label = new Label();
+				var disabled_label:Label = new Label();		
+				active_label.setStyle("fontWeight","bold");
+				inactive_label.setStyle("fontWeight","bold");
+				disabled_label.setStyle("fontWeight","bold");
+				active_label.text = "RESERVADO POR EL CLIENTE";
+				inactive_label.text = "DISPONIBLE";
+				disabled_label.text = "DESHABILITADO";
+				
+				var active_image:Box = new Box();
+				var inactive_image:Box = new Box();
+				var disabled_image:Box = new Box();
+				active_image.width = 20;
+				active_image.height = 20;//source = "../../../../assets/green_2.png";
+				inactive_image.width = 20;
+				inactive_image.height = 20;//source = "../../../../assets/green_1.png";
+				disabled_image.width = 20;
+				disabled_image.height = 20;//source = "../../../../assets/gray_1.png";
+				
+				active_image.setStyle("backgroundColor","#024e88");
+				inactive_image.setStyle("backgroundColor","#316853");
+				disabled_image.setStyle("backgroundColor","#cdcdcd");
+	
+				hactive.addChild(active_image);
+				hactive.addChild(active_label);
+				hinactive.addChild(inactive_image);
+				hinactive.addChild(inactive_label);
+				hdisabled.addChild(disabled_image);
+				hdisabled.addChild(disabled_label);
+				
+				vlegend.addChild(hactive);
+				vlegend.addChild(hinactive);
+				vlegend.addChild(hdisabled);
+				box.addChild(vlegend);
+				/*
+				var videochat_but:Button =  new Button();
+				videochat_but.label = "Abrir Video Teléfono";
+				videochat_but.addEventListener(MouseEvent.CLICK, function open_URL(evt:Event):void{
+					ExternalInterface.call('window.open', url, '_blank','scrollbars=false,resizable=false,width=736,height=414');
+					//navigateToURL(url, "_blank");
+				
+				});
+				box.addChild(videochat_but);*/
+			}
+			
+			//WEBSERVICES FUNCTION
+			
+			private function getlistxml_result(evt:ResultEvent):void{ //INICIALIZA LA COLUMNA DE HORAS
+				var tmp_xml:XML = new XML(evt.result);
+				var listxml:XMLList = new XMLList(tmp_xml.items);
+				hours.removeAll();
+				for each (var list:Object in listxml) {
+					hours.addItem(list.item.toString());		
+				}
+				CursorManager.removeBusyCursor();
+				var tmp:Date = new Date();
+				webService.getdataxml(tmp.getDate(),(tmp.getMonth()+1),tmp.getFullYear(),user,product_key); //SERVICIO DE PLANIFICACIONES
+			}
+			
+			private function getdataxml_result(evt:ResultEvent):void{ 
+				CursorManager.removeBusyCursor();
+				var tmp:XML = new XML(evt.result);
+				fillSchedule(tmp);
+			}
+			
+			private function service_fault(evt:FaultEvent):void{
+				CursorManager.removeBusyCursor();
+				//Alert.show("error");
+			}
+
+			
+		]]>
+	</mx:Script>
+	
+	<mx:WebService 
+		id="webService">
+		<mx:operation
+			name="getlistxml"
+			result="getlistxml_result(event)"
+			fault="service_fault(event)"
+			/>
+		<mx:operation
+			name="enablescheduledate"
+			result="getdataxml_result(event)"
+			fault="service_fault(event)"
+			/>
+		<mx:operation
+			name="disablescheduledate"
+			result="getdataxml_result(event)"
+			fault="service_fault(event)"
+			/>
+		<mx:operation
+			name="getdataxml"
+			result="getdataxml_result(event)"
+			fault="service_fault(event)"
+			/>
+	</mx:WebService>
+</mx:HBox>

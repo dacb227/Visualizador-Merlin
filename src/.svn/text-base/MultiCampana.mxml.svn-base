@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	layout="absolute"
+	creationComplete="init()" xmlns:com="com.*"
+	backgroundColor="#869ca7"
+	width="100%"
+	>
+	<mx:Style source="assets/skins/obsidian.css" />
+	<mx:Style source="css/Edwards.css" />
+	<mx:Script>
+		<![CDATA[
+			import com.*;
+			import com.adobe.viewsource.ViewSource;
+			
+			import flash.external.ExternalInterface;
+			
+			import mx.automation.delegates.containers.ApplicationAutomationImpl;
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import mx.containers.Form;
+			import mx.containers.ViewStack;
+			import mx.controls.Alert;
+			import mx.controls.DataGrid;
+			import mx.controls.LinkBar;
+			import mx.formatters.CurrencyFormatter;
+			import mx.managers.CursorManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			private var loader:URLLoader = new URLLoader();
+			private var request:URLRequest;
+			private var xmlConfig:XML;
+					
+			private var idDesktop:String;
+			private var loginDesktop:String;
+			private var nameDesktop:String;
+			private var hashDesktop:String;
+			private var workgroupsDesktop:XML;
+			private var appID:String;
+									
+			private function init():void{
+				try{
+					idDesktop = Application.application._ID;
+					loginDesktop = Application.application._LOGIN;
+					nameDesktop = Application.application._NAME;
+					hashDesktop = Application.application._HASH;
+					workgroupsDesktop = Application.application._WORKGROUPS;
+				}catch(e:Error){
+					workgroupsDesktop = new XML("<workgroups><workgroup id=\"1\" label=\"test\"/></workgroups>");
+				}
+				loader.addEventListener(Event.COMPLETE, openConfigFile);
+				loader.addEventListener(IOErrorEvent.IO_ERROR, errorConfigFile);
+				var url:String = this.url;
+				url = url.substring(0, url.lastIndexOf("/"))+"/config.xml";
+				
+				request = new URLRequest(url);
+				loader.load(request);
+				CursorManager.setBusyCursor();		
+			}
+			
+			private function openConfigFile (evt:Event):void{
+				xmlConfig = new XML(loader.data);
+				var xmlList:XMLListCollection = new XMLListCollection(xmlConfig.webservices);	
+				appID = xmlConfig.application.id;
+				try{
+					Application.application.parameters.videochaturl = xmlConfig.videochaturl;
+				}catch(e:Error){}
+				webService.wsdl = xmlList[0].ref.toString();
+				webService.loadWSDL();
+				webService.getParams(appID, loginDesktop); //TODO: MODIFICAR PARA LOS OTROS REPORTES
+			}
+			
+			private function errorConfigFile (evt:Event):void{
+				Alert.show("Error abriendo el archivo de configuracion");
+			}
+			
+			private function webService_result(evt:ResultEvent):void{
+				setInterface(new XML(evt.result));
+				CursorManager.removeBusyCursor();
+			}
+			
+			private function webService_fault(evt:FaultEvent):void{
+				CursorManager.removeBusyCursor();
+				Alert.show("Error accesando al Web Service\n"+evt.fault);
+			}	
+			
+			private function getparams_result(evt:ResultEvent):void{
+				var xml:XML = new XML(evt.result);
+				vineta.init(xml);
+				Application.application.parameters.product_key = xml.product_key;
+				Application.application.parameters.source = xml.source;
+				Application.application.parameters.user = xml.user;
+				try{
+				Application.application.parameters.audio_path = xml.audio_path;
+				}catch(e:Error){}
+				webService.getServices(xml.product_key);
+				CursorManager.removeBusyCursor();
+			}
+			
+			private function getparams_fault(evt:FaultEvent):void{
+				Alert.show("Error accesando al Web Service Desktop\n"+evt.fault);
+			}	
+			
+			private function setInterface(xml:XML):void{
+				for each(var group:XML in xml.group){
+					var linkbar:BarNavigator = new BarNavigator;
+					var d = view.addChild(linkbar);
+					d.label = group.@name;
+					linkbar.init(group, workgroupsDesktop);
+					tabbar.dataProvider = view;				
+				}
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<mx:VBox id="panel" width="100%" height="100%" verticalGap="0" cornerRadius="5" backgroundColor="#F4F4F4" >
+		<com:Vineta id="vineta" width="100%" height="60" />
+		<mx:TabBar id="tabbar" verticalGap="0" styleName="tabstyle1" />
+		<mx:ViewStack id="view"	width="100%" height="100%" verticalGap="0" cornerRadius="8" />
+	</mx:VBox>
+
+	<mx:WebService
+			id="webService" >
+		<mx:operation 
+			name="getServices"
+			result="webService_result(event)"
+			fault="webService_fault(event)"/>
+		<mx:operation 
+			name="getParams"
+			result="getparams_result(event)"
+			fault="getparams_fault(event)"/>	
+	</mx:WebService>
+
+</mx:Application>

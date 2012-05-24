@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	verticalAlign="middle" 
+	horizontalAlign="center" 
+	verticalGap="0" 
+	creationComplete="setDownloadButton()"
+	>
+
+	<mx:Style source="css/Default.css"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.rpc.events.ResultEvent;
+			import mx.collections.XMLListCollection;
+			import com.util.restriccionesXML;
+			import mx.controls.Button;
+			import mx.core.Application;
+			import mx.rpc.events.FaultEvent;
+			import mx.controls.Alert;
+			
+			private var column:String = "";
+			private var type:String = "";			
+			private var now:Date = new Date();
+			private var currentDate = now.date;
+			private var currentMonth = now.month;
+			private var currentYear = now.fullYear;
+			private var index:int;
+			private var download:int;
+			[Bindable] private var today:Date = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              
+            public function init(column:String, type:String, index:int, download:int):void{
+            	this.index = index;
+            	this.column = column;
+            	this.type = type;
+				this.download = download;            
+            }
+            
+            private function setDownloadButton():void{
+            	if(download){
+            		descargar.visible = true;
+            	}
+            }
+	                
+	        private function ver():void{
+	        	var restrictions:restriccionesXML = new restriccionesXML;
+	        	(this.type=="date")?restrictions.setColumna(this.column):restrictions.setColumna(this.column);
+	        	restrictions.setTipo("rango");
+	        	restrictions.setDesde(this.fecha_desde.text);
+	           	var xmllis:XMLListCollection = new XMLListCollection();
+	        	var xml:XMLList = restrictions.crearItem(index);
+	        	parentDocument.setRestrictions(xml);
+	        }
+	        
+            private function downloadExcel():void{
+            	var restrictions:restriccionesXML = new restriccionesXML;
+	        	(this.type=="date")?restrictions.setColumna(this.column):restrictions.setColumna(this.column);
+	        	restrictions.setTipo("rango");
+	        	restrictions.setDesde(this.fecha_desde.text);
+	        	var xmllis:XMLListCollection = new XMLListCollection();
+	        	var xml:XMLList = restrictions.crearItem(index);
+            	parentDocument.downloadToExcel(xml);           	
+            }
+	        
+		]]>
+	</mx:Script>
+		
+	<mx:DateFormatter 
+		id="df" 
+		formatString="YYYY-MM-DD"/>
+	<mx:HBox 
+		id="container"
+		horizontalAlign="center" 
+		verticalAlign="middle">
+		
+		<mx:Text 
+			text="Desde"/>
+		
+		<mx:DateField 
+			id="fecha_desde" 
+			formatString="YYYY-MM-DD"/>
+			
+		<mx:Button 
+			label="Ver" 
+			click="ver();" styleName="Botones"/>
+			
+		<mx:Button 
+			id = "descargar"
+			label="Descargar"
+			visible="false"
+			click="downloadExcel();"
+			styleName="Botones"/>  
+		
+	</mx:HBox>
+		
+</mx:VBox>

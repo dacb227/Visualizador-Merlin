@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%"> 
+      <mx:Script>
+        <![CDATA[
+            override public function set data(value:Object):void {
+
+                super.data = value;
+                if (value == null)
+                {
+                    linkLabel.htmlText = "";
+                    return;
+                }
+               
+                try
+                {
+                    linkLabel.htmlText = "<a href='event:"+value["address"]+"'><u>"+value["name"]+"</u></a>";
+                }catch(err:Error)
+                {
+                    linkLabel.htmlText = "";
+                }
+            }
+           
+            public function link_clicked(event:TextEvent):void
+            {
+                var u:URLRequest = new URLRequest(event.text);
+                navigateToURL(u,"_blank");
+            }
+            ]]>
+        </mx:Script>
+<mx:Label id="linkLabel" selectable="true" link="link_clicked(event);"  width="100%"/> 
+</mx:HBox>

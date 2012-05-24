@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	verticalAlign="middle" 
+	horizontalAlign="center" 
+	verticalGap="0" 
+	creationComplete="setDownloadButton()"
+	>
+
+	<mx:Style source="css/Default.css"/>
+	<mx:Script>
+		<![CDATA[
+			import com.util.restriccionesXML;
+			
+			import mx.charts.DateTimeAxis;
+			import mx.charts.chartClasses.DateRangeUtilities;
+			import mx.collections.XMLListCollection;
+			import mx.controls.Alert;
+			import mx.controls.Button;
+			import mx.core.Application;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			private var column:String = "";
+			private var type:String = "";			
+			private var now:Date = new Date();
+			private var currentDate = now.date;
+			private var currentMonth = now.month;
+			private var currentYear = now.fullYear;
+			private var index:int;
+			private var download:int;
+			[Bindable] private var today:Date = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              
+            public function init(column:String, type:String, index:int, download:int):void{
+            	this.index = index;
+            	this.column = column;
+            	this.type = type;
+				this.download = download;
+            }
+            
+            private function setDownloadButton():void{
+				verHoy();
+            	if(download){
+            		descargar.visible = true;
+            	}
+            }
+            
+			private function verAyer():void{	        	
+	        	var ayer:Date = new Date(currentYear, currentMonth, currentDate - 1);
+	        	fecha_desde.text=String(df.format(ayer));   
+	        	fecha_hasta.text=String(df.format(ayer));	
+	        	ver();
+	        } 
+	        
+	        private function verHoy():void{	        	
+	        	var hoy:Date = new Date(currentYear, currentMonth, currentDate);
+	        	fecha_desde.text=String(df.format(hoy));   
+	        	fecha_hasta.text=String(df.format(hoy));	
+	        	ver();
+	        }
+	        
+	        private function verUltimaSemana():void{	
+				var weekDay:int = today.day;
+	        	var startWeek:Date = new Date(currentYear, currentMonth, currentDate - weekDay + 1);
+				var endWeek:Date = new Date(currentYear, currentMonth, currentDate + 7 - weekDay);
+	        	fecha_desde.text=String(df.format(startWeek));
+	        	fecha_hasta.text=String(df.format(endWeek));
+	        	ver();
+	        }
+	        
+	        private function verEsteMes():void{	       
+	        	var lastMonth:Date = new Date(currentYear, currentMonth , 1);
+				var endMonth:Date = new Date(currentYear, currentMonth+1 , 0);
+	        	fecha_desde.text=String(df.format(lastMonth));
+	        	fecha_hasta.text=String(df.format(endMonth));
+	        	ver();
+	        }
+	        
+	        private function verMesAnterior():void{	    
+	        	var startMonth:Date = new Date(currentYear, currentMonth - 1 , 1);
+	        	var endMonth:Date = new Date(currentYear, currentMonth, 0);
+	        	//var endMonth:Date = new Date(currentYear, currentMonth - 1 , 30);
+	        	fecha_desde.text=String(df.format(startMonth));
+	        	fecha_hasta.text=String(df.format(endMonth));
+	        	ver();
+	        }
+	        
+	        private function ver():void{
+	        	var restrictions:restriccionesXML = new restriccionesXML;
+	        	(this.type=="date")?restrictions.setColumna(this.column):restrictions.setColumna(this.column);
+	        	restrictions.setTipo("rango");
+	        	restrictions.setDesde(this.fecha_desde.text);
+	        	restrictions.setHasta(this.fecha_hasta.text);
+	        	var xmllis:XMLListCollection = new XMLListCollection();
+	        	var xml:XMLList = restrictions.crearItem(0); //index
+	        	parentDocument.setRestrictions(this.type, xml);
+	        }
+	        
+            private function downloadExcel():void{
+            	var restrictions:restriccionesXML = new restriccionesXML;
+	        	(this.type=="date")?restrictions.setColumna(this.column):restrictions.setColumna(this.column);
+	        	restrictions.setTipo("rango");
+	        	restrictions.setDesde(this.fecha_desde.text);
+	        	restrictions.setHasta(this.fecha_hasta.text);
+	        	var xmllis:XMLListCollection = new XMLListCollection();
+	        	var xml:XMLList = restrictions.crearItem(index);
+            	parentDocument.downloadToExcel(xml);           	
+            }
+	        
+		]]>
+	</mx:Script>
+		
+	<mx:DateFormatter 
+		id="df" 
+		formatString="YYYY-MM-DD"/>
+	<mx:HBox 
+		id="container"
+		horizontalAlign="center" 
+		verticalAlign="middle">
+		
+		<mx:Text 
+			text="Desde"/>
+		
+		<mx:DateField 
+			id="fecha_desde" 
+			formatString="YYYY-MM-DD"/>
+		<mx:Text 
+			text="Hasta"/>
+		
+		<mx:DateField 
+			id="fecha_hasta" 
+			formatString="YYYY-MM-DD"/>
+			
+		<mx:Button 
+			label="Ver" 
+			click="ver();" styleName="Botones"/>
+			
+		<mx:Button 
+			id = "descargar"
+			label="Descargar"
+			visible="false"
+			click="downloadExcel();"
+			styleName="Botones"/>  
+		
+	</mx:HBox>
+	
+	<mx:HBox 
+		width="100%" 
+		verticalAlign="middle" 
+		horizontalAlign="center">
+		
+		<mx:LinkButton label="Hoy" click="verHoy();"/>						
+		<mx:LinkButton label="Ayer" click="verAyer();"/>
+		<mx:LinkButton label="Esta Semana" click="verUltimaSemana();"/>
+		<mx:LinkButton label="Este Mes" click="verEsteMes();"/>
+		<mx:LinkButton label="Mes Anterior" click="verMesAnterior();"/>
+	</mx:HBox>
+	
+</mx:VBox>
